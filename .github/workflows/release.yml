@@ -1,0 +1,109 @@
+# アプリを作って配る（GitHub のリリース）
+# ・ソース（非公開の WORKSTATION）を読み込んで、Mac（Apple シリコン・Intel）と Windows（x64・ARM）のファイルを作る
+# ・このリポジトリに「v＋版の番号」のリリースを作って、4つのファイルを付ける（ページのダウンロードはここを指す）
+# ・公開リポジトリの Actions は無料（Mac で作る分も）
+# ・同じ版の番号のリリースがもうあるときは失敗する → ソースの package.json の version を上げてから動かす
+name: アプリを作って配る
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'ソースのブランチかタグ'
+        default: 'main'
+        required: true
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  SOURCE_REPO: ${{ vars.SOURCE_REPO || 'keigo29/WORKSTATION' }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac
+          - os: windows-latest
+            target: --win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: ソースを読み込む
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.SOURCE_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: テスト
+        if: runner.os == 'macOS'
+        run: npm test
+
+      - name: アプリを作る
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'   # 署名はしない（Apple・Microsoft の有料の登録をしていないため）
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.os }}
+          path: |
+            dist/Workstation-*.dmg
+            dist/Workstation-Setup-*.exe
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 版の番号を読む
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.SOURCE_TOKEN }}
+          path: src
+          sparse-checkout: /package.json
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: リリースを作ってファイルを付ける
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(node -p "require('./src/package.json').version")
+          ls -la out
+          cat > notes.md <<NOTES
+          Workstation $v
+
+          | パソコン | ファイル |
+          |---|---|
+          | Mac（Apple シリコン：M1・M2・M3・M4 など） | Workstation-arm64.dmg |
+          | Mac（Intel） | Workstation-x64.dmg |
+          | Windows | Workstation-Setup-x64.exe |
+          | Windows（ARM） | Workstation-Setup-arm64.exe |
+
+          - Mac：dmg を開いて「アプリケーション」へドラッグ。はじめて開くと止められたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」
+          - Windows：「Windows によって PC が保護されました」と出たら、「詳細情報」→「実行」
+          NOTES
+          gh release create "v$v" out/* --repo "$GITHUB_REPOSITORY" --title "Workstation $v" --notes-file notes.md
+
+      - name: ページの版の番号を新しくする
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY"
