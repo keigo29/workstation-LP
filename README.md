@@ -10,6 +10,7 @@
 | Mac（Intel） | `Workstation-x64.dmg` |
 | Windows | `Workstation-Setup-x64.exe` |
 | Windows（ARM） | `Workstation-Setup-arm64.exe` |
+| Chrome 拡張機能（ブックマークをサイドパネルに） | `Workstation-Chrome-extension.zip` |
 
 ---
 
@@ -20,7 +21,7 @@
 | しくみ | すること |
 |---|---|
 | `.github/workflows/pages.yml`「ページを公開する」 | ソースの `site/` を GitHub Pages に公開する（手で動かす・アプリを配ったあと・毎日1回） |
-| `.github/workflows/release.yml`「アプリを作って配る」 | Mac と Windows のファイルを作り、`v版の番号` のリリースに付ける（手で動かす） |
+| `.github/workflows/release.yml`「アプリを作って配る」 | Mac と Windows のファイルと Chrome 拡張機能の zip を作り、`v版の番号` のリリースに付ける（手で動かす） |
 
 ### はじめにすること（1回だけ）
 
