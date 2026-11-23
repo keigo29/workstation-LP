@@ -67,20 +67,29 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: 版の番号を読む
+      - name: 版の番号と Chrome 拡張機能を読む
         uses: actions/checkout@v4
         with:
           repository: ${{ env.SOURCE_REPO }}
           ref: ${{ inputs.ref }}
           token: ${{ secrets.SOURCE_TOKEN }}
           path: src
-          sparse-checkout: /package.json
+          sparse-checkout: |
+            /package.json
+            /extension/
           sparse-checkout-cone-mode: false
 
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
+
+      - name: Chrome 拡張機能を zip にする
+        run: |
+          mkdir -p out
+          cp -r src/extension Workstation-Chrome-extension
+          zip -qr out/Workstation-Chrome-extension.zip Workstation-Chrome-extension
+          unzip -l out/Workstation-Chrome-extension.zip | tail -3
 
       - name: リリースを作ってファイルを付ける
         env:
@@ -97,9 +106,11 @@ jobs:
           | Mac（Intel） | Workstation-x64.dmg |
           | Windows | Workstation-Setup-x64.exe |
           | Windows（ARM） | Workstation-Setup-arm64.exe |
+          | Chrome 拡張機能（ブックマークをサイドパネルに） | Workstation-Chrome-extension.zip |
 
           - Mac：dmg を開いて「アプリケーション」へドラッグ。はじめて開くと止められたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」
           - Windows：「Windows によって PC が保護されました」と出たら、「詳細情報」→「実行」
+          - Chrome 拡張機能：zip を開いてできたフォルダを、chrome://extensions の「デベロッパー モード」→「パッケージ化されていない拡張機能を読み込む」で選ぶ。アプリの設定「ブックマークをブラウザで見る」のアドレスをパネルに貼って「つなぐ」
           NOTES
           gh release create "v$v" out/* --repo "$GITHUB_REPOSITORY" --title "Workstation $v" --notes-file notes.md
 
