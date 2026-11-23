@@ -1,0 +1,56 @@
+# ページを公開する（GitHub Pages）
+# ・ソース（非公開の WORKSTATION）の site/ をそのまま公開する。ここにはページのファイルを置かない
+# ・版の番号は、このリポジトリの最新のリリースに合わせる（まだなければ package.json）
+# ・動くとき：手で「Run workflow」／アプリを配ったあと（release.yml から）／毎日1回（ソースの site/ の変更を拾う）
+name: ページを公開する
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 21 * * *'   # 毎日 21:17（UTC）＝ 日本時間 6:17
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  SOURCE_REPO: ${{ vars.SOURCE_REPO || 'keigo29/WORKSTATION' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: ソースの site/ を読み込む
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          token: ${{ secrets.SOURCE_TOKEN }}
+          path: src
+          sparse-checkout: |
+            /site/
+            /package.json
+          sparse-checkout-cone-mode: false
+
+      - name: 版の番号を入れる
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null | sed 's/^v//' || true)
+          [ -n "$v" ] || v=$(node -p "require('./src/package.json').version")
+          echo "版の番号：$v"
+          sed -i "s#<span data-ver>[^<]*</span>#<span data-ver>$v</span>#g" src/site/index.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: src/site
+      - id: deploy
+        uses: actions/deploy-pages@v4
