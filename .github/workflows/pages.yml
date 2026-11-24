@@ -48,9 +48,9 @@ jobs:
           echo "版の番号：$v"
           sed -i "s#<span data-ver>[^<]*</span>#<span data-ver>$v</span>#g" src/site/index.html
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: src/site
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
