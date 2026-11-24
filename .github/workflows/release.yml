@@ -87,6 +87,7 @@ jobs:
           sparse-checkout: |
             /package.json
             /extension/
+            /docs/リリースノート.md
           sparse-checkout-cone-mode: false
 
       - uses: actions/download-artifact@v4
@@ -107,6 +108,17 @@ jobs:
         run: |
           v=$(node -p "require('./src/package.json').version")
           ls -la out
+          # この版の「変わったこと」（WORKSTATION の docs/リリースノート.md の「## 版の番号」の下）。アプリはこの印の間を読む
+          changes=$(awk -v v="$v" '/^## /{p = ($2 == v); next} p' "src/docs/リリースノート.md" 2>/dev/null | sed '/^[[:space:]]*$/d')
+          [ -n "$changes" ] || changes="- （この版の変わったことは、まだ書かれていません）"
+          {
+            echo "## 変わったこと"
+            echo "<!-- notes -->"
+            echo "$changes"
+            echo "<!-- /notes -->"
+            echo
+          } > changes.md
+          cat changes.md
           cat > notes.md <<NOTES
           Workstation $v
 
@@ -126,7 +138,8 @@ jobs:
           NOTES
           # 自動アップデートで、ダウンロードしたファイルが壊れたりすり替わったりしていないかを確かめるための値
           (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
-          gh release create "v$v" out/* --repo "$GITHUB_REPOSITORY" --title "Workstation $v" --notes-file notes.md
+          cat changes.md notes.md > body.md
+          gh release create "v$v" out/* --repo "$GITHUB_REPOSITORY" --title "Workstation $v" --notes-file body.md
 
       - name: ページの版の番号を新しくする
         env:
