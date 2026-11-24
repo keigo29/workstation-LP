@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy_try.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
       - name: ソースの site/ を読み込む
         uses: actions/checkout@v4
@@ -52,5 +52,15 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: src/site
-      - id: deploy
+      # 置いたファイルが GitHub の一覧に載るまで少しかかる（すぐ公開しようとすると「見つからない」で失敗することがある）
+      - name: 置いたファイルが一覧に載るのを待つ
+        run: sleep 20
+      - id: deploy_try
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: うまくいかなかったら、少し待ってもう一度
+        if: steps.deploy_try.outcome == 'failure'
+        run: sleep 30
+      - id: deploy_retry
+        if: steps.deploy_try.outcome == 'failure'
         uses: actions/deploy-pages@v5
