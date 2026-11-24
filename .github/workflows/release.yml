@@ -55,11 +55,21 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'   # 署名はしない（Apple・Microsoft の有料の登録をしていないため）
 
+      # Mac：アプリの自動アップデートで使う zip（dmg と同じ中身。アプリが展開して置きかえる）
+      - name: 自動アップデート用の zip の名前をそろえる
+        if: runner.os == 'macOS'
+        run: |
+          for a in arm64 x64; do
+            [ -f "dist/Workstation-$a.zip" ] && mv "dist/Workstation-$a.zip" "dist/Workstation-mac-$a-update.zip"
+          done
+          ls -la dist/*.zip
+
       - uses: actions/upload-artifact@v4
         with:
           name: app-${{ matrix.os }}
           path: |
             dist/Workstation-*.dmg
+            dist/Workstation-mac-*-update.zip
             dist/Workstation-Setup-*.exe
           if-no-files-found: error
 
@@ -108,10 +118,14 @@ jobs:
           | Windows（ARM） | Workstation-Setup-arm64.exe |
           | Chrome 拡張機能（ブックマークをサイドパネルに） | Workstation-Chrome-extension.zip |
 
+          Workstation-mac-*-update.zip と SHA256SUMS.txt は、アプリの自動アップデートが使うファイルです（ダウンロードしなくてだいじょうぶです）。
+
           - Mac：dmg を開いて「アプリケーション」へドラッグ。はじめて開くと止められたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」
           - Windows：「Windows によって PC が保護されました」と出たら、「詳細情報」→「実行」
           - Chrome 拡張機能：zip を開いてできたフォルダを、chrome://extensions の「デベロッパー モード」→「パッケージ化されていない拡張機能を読み込む」で選ぶ。アプリの設定「ブックマークをブラウザで見る」のアドレスをパネルに貼って「つなぐ」
           NOTES
+          # 自動アップデートで、ダウンロードしたファイルが壊れたりすり替わったりしていないかを確かめるための値
+          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
           gh release create "v$v" out/* --repo "$GITHUB_REPOSITORY" --title "Workstation $v" --notes-file notes.md
 
       - name: ページの版の番号を新しくする
